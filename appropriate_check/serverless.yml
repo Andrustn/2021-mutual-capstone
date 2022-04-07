@@ -1,0 +1,32 @@
+	
+service: appropriate-check
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'prod'} #defaults to prod if a stage is not found
+  region: ${env:AWS_REGION, 'us-east-1'} #Uses the environment if set in your AWS CLI credentials, otherwise uses us-east-1 (N. Virginia). Feel free to manually set
+  profile: 
+  ecr:
+    images:
+      ecr_img:
+        path: ./
+        platform: linux/amd64
+  iam: #This adds administrator access to S3. Feel free to restrict or add additional permissions as needed
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - 's3:*'
+            - 's3-object-lambda:'
+          Resource: '*'
+
+functions:
+  demo: #set the name of the function here
+    name: appropriate-check
+    description: Function to be called to assess the appropriateness of a sent message
+    timeout: 60 #how long it can be allowed to run in seconds.
+    memorySize: 1024 #Memory in MB. The more memory used the more a user gets billed. Once you have tested your function, you will get a memory used value. Set it around 500MB higher than that
+    image: ecr_img #this references the image name under ecr in the provider section
+    events:
+      - schedule: cron(0 8 * * ? *) #Cron is in UTC time. UTC is 5 hours ahead of EST. This runs at 3AM in the morning.

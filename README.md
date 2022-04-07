@@ -1,5 +1,10 @@
 # 2021 Mutual Data Science Capstone Project - Appropriate-Checker
 
+## Final Product:
+  - A post request with a JSON body with the format:
+    - {"message": "I could really go for a ncmo right now"} 
+  - can be sent to the API Gateway endpoint https://orqp9raml1.execute-api.us-east-1.amazonaws.com/appropriate-check and recieve a classification response for the appropriateness of the message. 
+
 ## Files and descriptions:
 ### README.md
   - A file containting file descriptions and instructions for executing code

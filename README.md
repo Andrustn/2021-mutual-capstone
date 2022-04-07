@@ -25,13 +25,7 @@
       - If classified inappropriate, returns Potentially Inappropriate
       - If no inappropriate flags are thrown, returns appropriate
 
-
-
-
-
-
-
-### data_prep_and_train.ipynb
+### data_clean_and_train.ipynb
 - An interactive python notebook that walks through the process of:
   - Pulling in message data from a csv file
   - Cleaning message data necessary for training a classification model
@@ -70,4 +64,40 @@
 
 ### testing.csv
 - A subset of mutal_messages.csv created by data_prep_and_train files that is used to test the classification model
+
+
+
+
+# Instructions for Deployment:
+- All retraining and deployment can be done with edits to the following two files:
+  - mutual_messages.csv
+  - dictionary_bad_words.csv
+    - By editing mutal_messages.csv, one can change the data with which the model is trained, and update model predictions. 
+    - By editing dictionary_bad_words.csv, one can change the flag words which the model will deem blatanlty inappropriate.
+
+- After making edits to either of these files, both data_clean_and_train and lambda_prep must be run in their entirety. The first will retrain and resave the updated model, and the latter will push these changes to S3, where the lambda function can access the updated values automatically. 
+
+- To edit the lambda function itself (change return value formats etc.), edits will need to be made to the test.py file within the appropriate-check folder. After edits on this file are complete, changes will need to be pushed to AWS using the serverless framework. Documentation on this can be found here: https://www.serverless.com.
+
+- As a part of using serverless, AWS CLI credentials with proper permissions will be needed. 
+
+
+## Example steps for redeployment:
+
+1) I want to update and retrain the model with more data, and I want all future messages featuring the word "Applebee's" to be flagged as blatantly inappropriate. 
+2) To do so, I first update mutual_messages.csv (or create a new csv file) with the new data I have acquired, making sure to keep the same format as existing data. 
+3) Then, I add the word "Applebee's" to the dictionary_bad_words.csv file
+4) To create a new model with these changes, I either run data_clean_and_train.py with appropriate command line arguments, or run data_clean_and_train.ipynb in its entirety. This trains the new model and exports the pickle files necessary for updating.
+5) To push these changes to lambda, I then run lambda_prep.ipynb - this pushes my newly created pickle files to S3, where the lambda function will pull the new updates.
+6) Calls to API Gateway should now reflect the changes I have made. 
+
+
+1) I want to 
+
+
+
+
+
+
+
 

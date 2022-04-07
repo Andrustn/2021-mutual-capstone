@@ -84,6 +84,8 @@
 
 ## Example steps for redeployment:
 
+### 1)
+
 1) I want to update and retrain the model with more data, and I want all future messages featuring the word "Applebee's" to be flagged as blatantly inappropriate. 
 2) To do so, I first update mutual_messages.csv (or create a new csv file) with the new data I have acquired, making sure to keep the same format as existing data. 
 3) Then, I add the word "Applebee's" to the dictionary_bad_words.csv file
@@ -91,8 +93,14 @@
 5) To push these changes to lambda, I then run lambda_prep.ipynb - this pushes my newly created pickle files to S3, where the lambda function will pull the new updates.
 6) Calls to API Gateway should now reflect the changes I have made. 
 
+### 2)
 
-1) I want to 
+1) I want to change how the lambda function returns (or otherwise change the structure of how it runs)
+2) To do so, I will need to make edits to the test.py file within the appropriate-check folder. 
+3) After doing so, I will need to redeploy using the serverless framework. 
+4) I first need to run AWS Configure in the command line and input credentials with appropriate permissions
+5) I also need to initialize an instance of serverless in the appropriate-check folder. 
+6) After everything is configured, running 'sls deploy' while in the appropriate-check directory will push my changes to AWS. 
 
 
 

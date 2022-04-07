@@ -1,2 +1,5 @@
-# 2021-mutual-capstone
-Deliverables for the 2021 Mutual data science capstone
+# 2021 Mutual Data Science Capstone
+## Appropriate-Checker
+
+### Files and descriptions:
+

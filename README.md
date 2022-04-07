@@ -11,6 +11,19 @@
   - Push docker image to lambda using the "Serverless" framework
     #### Dockerfile
     - Specifications for docker to allow script to build correctly
+    #### requirements.txt
+    - A list of all required packages that are installed by building the docker image
+    #### serverless.yml
+    - A list of specifications to configure Serverless framework - allows integration with AWS Lambda
+    #### test.py
+    - A python script that constitutes the appropriate-check script. This is the lambda function that is called by API gateway, and does the following:
+      - Imports all necessary packages
+      - Pulls in model, count vectorizer, and blacklist dictionary from S3
+      - Takes individual message input from API Gateway
+      - Checks message against blackglist dictionary, if flag word is found, returns Inappropariate
+      - If no flag word is found, runs message through previously trained classification model
+      - If classified inappropriate, returns Potentially Inappropriate
+      - If no inappropriate flags are thrown, returns appropriate
 
 
 

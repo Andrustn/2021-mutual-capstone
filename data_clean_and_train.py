@@ -1,23 +1,16 @@
 # necessary imports
 import pandas as pd
 import numpy as np
-import re
 import nltk
-from nltk import wordpunct_tokenize, word_tokenize, sent_tokenize
+from nltk import wordpunct_tokenize
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-from sklearn import metrics
 import emoji
 import pickle
 import argparse
 
-# function for cleaning messages.
 sw = stopwords.words('english')
 wn = WordNetLemmatizer()
 
@@ -31,12 +24,30 @@ class DataPrep:
                  model_filename,
                  cv_filename,
                  bad_words_pkl_filepath):
-        training, testing = self.make_train_test_datasets(data_filepath, message_column_label,
-                                      label_column_label, training_data_storage_path,
+
+        # splitting the data into training and testing sets. We do this by
+        # making sure the training and testing sets are equal parts messages
+        # that have been flagged as inappropriate and messages that are fine.
+        # This helps the model to learn the data without being overwhelmed by
+        # the number of messages that are not inappropriate.
+        training, testing = self.make_train_test_datasets(data_filepath,
+                                      message_column_label, label_column_label,
+                                      training_data_storage_path,
                                       testing_data_storage_path)
+
+        # Training the model and tetsing it to make sure it has the accuracy
+        # we want.
         classifier, cv, accuracy, recall, precision, f1 = self.train_model(
                         training, testing, message_column_label,
                         label_column_label, bad_words_filepath)
+        print("Model Accuracy: ", accuracy)
+        print("Model Recall: ", recall)
+        print("Model Precision: ", precision)
+        print("Model F1 score: ", f1)
+
+        # creating the dictionary of bad words from the bad_words csv originally
+        # created for the project. The dictionary allows for constant time
+        # lookup, making it ideal for this situation.
         df = pd.read_csv(bad_words_filepath)
         df = list(df)
 
@@ -45,6 +56,9 @@ class DataPrep:
             df[i] = df[i].strip()
         for i in df:
             my_dict[i] = 1
+
+        # sending the model, count vectorizer, and bad words dictionary to a
+        # pkl file so they can be easily transported to AWS.
         self.pickle_model(model_filename, classifier, cv_filename, cv,
                           bad_words_pkl_filepath, my_dict)
 
@@ -55,21 +69,25 @@ class DataPrep:
         tokens = wordpunct_tokenize(text) # tokenize individual words
         tokens = [tok for tok in tokens if tok.isalnum()] # removing punctuation
         tokens = [tok for tok in tokens if tok not in sw] # removing stop words
-        tokens = [wn.lemmatize(tok) for tok in tokens] # lematizing lyrics - reducing to base words
+        tokens = [wn.lemmatize(tok) for tok in tokens] # lematizing - reducing to base words
         return " ".join(tokens)
 
-    # function for creating training and testing. Takes as input:
-        # the path to the file where the csv of data is stored
-        # the column name for where the messages are stored
-        # the column name for where the labels are stored
-        # the path to where the training data should be stored
-        # the path to where the testing data should be stored
-    # it returns:
-        # a dataframe with testing data
-        # a dataframe with training data
-    # it also:
-        # exports both training and testing data to CSVs
-    def make_train_test_datasets(self, filepath, message_column_label, label_column_label, training_data_path, testing_data_path):
+    '''
+        function for creating training and testing. Takes as input:
+            the path to the file where the csv of data is stored
+            the column name for where the messages are stored
+            the column name for where the labels are stored
+            the path to where the training data should be stored
+            the path to where the testing data should be stored
+        it returns:
+            a dataframe with testing data
+            a dataframe with training data
+        it also:
+            exports both training and testing data to CSVs
+    '''
+    def make_train_test_datasets(self, filepath, message_column_label,
+                                 label_column_label, training_data_path,
+                                 testing_data_path):
         df = pd.read_csv(filepath)
         df[message_column_label] =df[message_column_label].astype(str)
         df = df.dropna()
@@ -103,6 +121,13 @@ class DataPrep:
 
         return train, test
 
+    '''
+        A scoring function of our creation that gives back accuracy as well as
+        precision, recall, and f1 score so we can determine the models overall
+        ccuracy on several different fronts. This function is slow, which is why
+        it is reccomended to retain the model on a GPU if possible. You don't have
+        to though, I did it on my local machine and it worked fine.
+    '''
     def getScores(self, preds, labels):
         total_same = 0
         total_pos = 0
@@ -111,9 +136,6 @@ class DataPrep:
         false_negatives = 0
         false_positives = 0
         for i in range(len(preds)):
-        #     print(preds[i])
-        #     print(labels[i])
-        #     print()
             if labels[i] == 1:
                 total_pos += 1
 
@@ -169,16 +191,23 @@ class DataPrep:
             sample_text = [sample_text]
             sample_cv = cv.transform(sample_text)
 
-            sample_df = pd.DataFrame(sample_cv.toarray(), columns = cv.get_feature_names())
+            sample_df = pd.DataFrame(sample_cv.toarray(),
+                                     columns = cv.get_feature_names())
 
             # predict on sample message
             val = model.predict(sample_df)[0]
             predictions.append(val)
         return predictions
 
-    # function to train a random forest classifier. This function will train and test the model until it finds one with an
-    # acceptable accuracy. This is necessary because of the random nature of the random forest classifier.
-    def train_model(self, training_data, testing_data, message_column_label, label_column_label, bad_words_filepath):
+    '''
+        function to train a random forest classifier. This function will train and
+        test the model until it finds one with an acceptable accuracy. This is
+        necessary because of the random nature of the random forest classifier. It
+        sometimes learns a very good feature selection for classification, but
+        often times the random initialization leads it down the wrong path.
+    '''
+    def train_model(self, training_data, testing_data, message_column_label,
+                    label_column_label, bad_words_filepath):
         best_cv = None
         best_classifier = None
         best_accuracy = 0
@@ -202,7 +231,8 @@ class DataPrep:
         return best_classifier, best_cv, accuracy, recall, precision, f1
 
     # pickling the model and the vectorizer to be put up on AWS
-    def pickle_model(self, model_filename, model, cv_filename, cv, dictionary_filename, dictionary):
+    def pickle_model(self, model_filename, model, cv_filename,
+                     cv, dictionary_filename, dictionary):
         pickle.dump(model, open(model_filename, 'wb'))
         pickle.dump(cv, open(cv_filename, 'wb'))
         pickle.dump(dictionary, open(dictionary_filename, 'wb'))
@@ -210,17 +240,18 @@ class DataPrep:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-data")
-    parser.add_argument("-message_label")
-    parser.add_argument("-label_label")
+    parser.add_argument("-data", help="the filepath from where you are running the script to where the new training data is located")
+    parser.add_argument("-message_label", help="the column title for the column where the messages are stored (in the original data, this was \"Message\")")
+    parser.add_argument("-label_label", help="the column title for the column where the label of the messages are stored (in the original data, this was \"Is Inappropriate\")")
     parser.add_argument("-training_storage", default="training.csv")
     parser.add_argument("-testing_storage", default="testing.csv")
-    parser.add_argument("-bad_words_location")
+    parser.add_argument("-bad_words_location", help="the filepath to where the csv containing the list of bad words is stored")
     parser.add_argument("-model_storage_file", default="model.pkl")
     parser.add_argument("-cv_storage_file", default="cv.pkl")
     parser.add_argument("-bad_words_storage", default="bad_words.pkl")
     args = parser.parse_args()
 
-    prep = DataPrep(args.data, args.message_label, args.label_label, args.training_storage,
-                    args.testing_storage, args.bad_words_location, args.model_storage_file,
+    prep = DataPrep(args.data, args.message_label, args.label_label,
+                    args.training_storage, args.testing_storage,
+                    args.bad_words_location, args.model_storage_file,
                     args.cv_storage_file, args.bad_words_storage)
